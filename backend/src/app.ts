@@ -465,10 +465,35 @@ const healthHandler = (req: Request, res: Response) => {
 
 app.get('/api/health', healthLimiter, idempotencyMiddleware, healthHandler);
 
-app.get('/api/health/deep', idempotencyMiddleware, async (_req: Request, res: Response) => {
-  const result = await runDeepHealthCheck();
-  const statusCode = result.overall === 'up' ? 200 : 503;
-  res.status(statusCode).json(result);
+/**
+ * Validates every input to `GET /api/health/deep` before any dependency probe
+ * (store, Soroban RPC, contract, auth) runs.
+ *
+ * The route accepts no path parameters, no query string, and no request body.
+ * `healthInputSchema` enforces that contract explicitly, so unexpected input is
+ * rejected here with HTTP 400 and the `HEALTH_DEEP_INVALID_INPUT` error code
+ * rather than surfacing as a confusing downstream failure.
+ */
+app.get('/api/health/deep', idempotencyMiddleware, async (req: Request, res: Response) => {
+  const result = healthInputSchema.safeParse({
+    params: req.params,
+    query: req.query,
+    body: req.body,
+  });
+
+  if (!result.success) {
+    res.status(400).json({
+      error: 'Invalid input for deep health endpoint.',
+      code: 'HEALTH_DEEP_INVALID_INPUT',
+      details: result.error.issues,
+      requestId: req.requestId,
+    });
+    return;
+  }
+
+  const health = await runDeepHealthCheck();
+  const statusCode = health.overall === 'up' ? 200 : 503;
+  res.status(statusCode).json(health);
 });
 
 app.get('/worker/health', (_req: Request, res: Response) => {
