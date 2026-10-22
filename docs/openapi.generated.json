@@ -910,6 +910,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid input: the route accepts no path parameters, query string, or request body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "One or more critical components are down.",
             "content": {
@@ -1156,7 +1166,18 @@
           "Bounties"
         ],
         "summary": "Create a bounty",
-        "description": "Creates a new open bounty and persists it. Rate-limited to **5 requests per IP per minute**. The `deadlineAt` timestamp is computed as `now + deadlineDays * 86400`.",
+        "description": "Creates a new open bounty and persists it. Rate-limited to **5 requests per IP per minute**. The `deadlineAt` timestamp is computed as `now + deadlineDays * 86400`. An optional `Idempotency-Key` header replays the original response for retries made with the same key, so a client retrying after a timeout does not create a duplicate bounty.",
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "description": "Optional key used to replay the original response for repeated requests."
+            },
+            "required": false,
+            "name": "Idempotency-Key",
+            "in": "header"
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
