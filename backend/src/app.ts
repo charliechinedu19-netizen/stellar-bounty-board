@@ -359,6 +359,45 @@ export const bountiesLimiter = rateLimit({
   },
 });
 
+/**
+ * Route-specific explicit rate limiter for GET /api/health (#1180).
+ *
+ * Cost justification:
+ * Fetching the health status is a cheap, unauthenticated liveness probe that performs
+ * essentially no work:
+ * 1. No store lock, no GitHub/Stellar/Soroban call, no disk or database I/O.
+ * 2. It only validates the (empty) query/body via `healthInputSchema` and returns a
+ *    static `{ status: 'ok', timestamp }` payload.
+ *
+ * Because it is a liveness probe it is polled by load balancers, Kubernetes
+ * readiness/liveness checks, and uptime monitors, often from a small number of shared
+ * IPs. Legitimate traffic therefore needs a much higher ceiling than ordinary reads to
+ * avoid falsely signalling an outage. An explicit ceiling of 300 requests per minute
+ * (5 req/sec per IP, configurable via RATE_LIMIT_HEALTH_MAX and RATE_LIMIT_HEALTH_WINDOW_MS)
+ * is far above any realistic monitor cadence while still bounding unauthenticated flooding.
+ *
+ * Note: per-IP limiting can misbehave when many clients sit behind a single NAT/proxy;
+ * very high-volume probes are better exempted at the infrastructure layer than handled here.
+ *
+ * When the limit is exceeded, HTTP 429 is returned with an explicit Retry-After header.
+ */
+export const healthLimiter = rateLimit({
+  windowMs: appConfig.rateLimitHealthWindowMs,
+  max: appConfig.rateLimitHealthMax,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => process.env.NODE_ENV === 'test' && process.env.RATE_LIMIT_TEST_MODE !== 'true',
+  handler: (req: Request, res: Response) => {
+    const retryAfter = Math.ceil(appConfig.rateLimitHealthWindowMs / 1000);
+    res.setHeader('Retry-After', String(retryAfter));
+    res.status(429).json({
+      error: 'Too many health check requests. Please try again later.',
+      retryAfter,
+      requestId: req.requestId,
+    });
+  },
+});
+
 // Apply read limiter to all GET requests
 app.use((req: any, res: any, next: any) => {
   if (req.method === 'GET') return readLimiter(req, res, next);
@@ -424,7 +463,7 @@ const healthHandler = (req: Request, res: Response) => {
   });
 };
 
-app.get('/api/health', idempotencyMiddleware, healthHandler);
+app.get('/api/health', healthLimiter, idempotencyMiddleware, healthHandler);
 
 app.get('/api/health/deep', idempotencyMiddleware, async (_req: Request, res: Response) => {
   const result = await runDeepHealthCheck();
