@@ -321,8 +321,14 @@ registry.registerPath({
   description:
     "Creates a new open bounty and persists it. " +
     "Rate-limited to **5 requests per IP per minute**. " +
-    "The `deadlineAt` timestamp is computed as `now + deadlineDays * 86400`.",
+    "The `deadlineAt` timestamp is computed as `now + deadlineDays * 86400`. " +
+    "An optional `Idempotency-Key` header replays the original response for retries made with the same key, so a client retrying after a timeout does not create a duplicate bounty.",
   request: {
+    headers: z.object({
+      "Idempotency-Key": z.string().optional().openapi({
+        description: "Optional key used to replay the original response for repeated requests.",
+      }),
+    }),
     body: jsonBody(createBountySchema),
   },
   responses: {

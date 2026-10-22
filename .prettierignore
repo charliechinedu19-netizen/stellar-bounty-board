@@ -42,6 +42,13 @@ contracts/test_snapshots
 contracts/**/test_snapshots
 *.zip
 
+# Generated OpenAPI artifacts (Deliberately chosen):
+# `frontend`-consumed spec and its source are emitted by `npm run gen:openapi`.
+# Reformatting them creates churn and breaks the spec drift check
+# (`test/openapi.routes.test.ts`), so they are kept byte-for-byte as generated.
+backend/src/docs/openapi.ts
+docs/openapi.generated.json
+
 # ------------------------------------------------------------------------------
 # Runtime Data Stores (Deliberately chosen)
 # ------------------------------------------------------------------------------
