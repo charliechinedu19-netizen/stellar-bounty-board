@@ -339,7 +339,7 @@ registry.registerPath({
   description:
     "Assigns a contributor to an `open` bounty, transitioning its status to `reserved`. " +
     "Only one contributor can hold a reservation at a time. " +
-    "Rate-limited to **5 requests per IP per minute**.",
+    "Rate-limited to **10 requests per IP per minute**.",
   request: {
     params: z.object({ id: z.string().openapi(bountyIdParam.schema) }),
     body: jsonBody(reserveBountySchema),
