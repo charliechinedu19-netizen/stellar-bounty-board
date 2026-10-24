@@ -464,13 +464,15 @@
           },
           "expectedVersion": {
             "type": "integer",
-            "description": "Optional version number for race condition prevention. If provided, must match current bounty version.",
+            "minimum": 1,
+            "description": "Optional positive version number for race condition prevention. If provided, must match current bounty version.",
             "example": 1
           }
         },
         "required": [
           "contributor"
-        ]
+        ],
+        "additionalProperties": false
       },
       "SubmitBountyRequest": {
         "type": "object",
@@ -898,7 +900,7 @@
           "System"
         ],
         "summary": "Deep health check",
-        "description": "Extended health check that verifies all external dependencies. Checks JSON store read/write, Soroban RPC reachability, contract ID configuration, and auth configuration (MAINTAINER_PUBLIC_KEY and ARBITER_ADDRESS). Each component check has a configurable timeout via DEEP_HEALTH_CHECK_TIMEOUT_MS (default 5000 ms); a timed-out component is reported as down. Excluded from rate limiting. Returns HTTP 503 when any critical component is down.",
+        "description": "Extended health check that verifies all external dependencies. Checks JSON store read/write, Soroban RPC reachability, contract ID configuration, and auth configuration (MAINTAINER_PUBLIC_KEY and ARBITER_ADDRESS). Each component check has a configurable timeout via DEEP_HEALTH_CHECK_TIMEOUT_MS (default 5000 ms); a timed-out component is reported as down. Limited to 10 requests per minute per IP by default (configurable with RATE_LIMIT_DEEP_HEALTH_MAX and RATE_LIMIT_DEEP_HEALTH_WINDOW_MS). Returns HTTP 503 when any critical component is down.",
         "responses": {
           "200": {
             "description": "All critical components are healthy.",
@@ -916,6 +918,40 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded. Retry after the number of seconds in Retry-After.",
+            "headers": {
+              "Retry-After": {
+                "description": "Seconds to wait before retrying.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    },
+                    "retryAfter": {
+                      "type": "number"
+                    },
+                    "requestId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "retryAfter"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -1891,7 +1927,8 @@
           {
             "schema": {
               "type": "string",
-              "example": "BNT-0001"
+              "example": "BNT-0001",
+              "minLength": 1
             },
             "required": true,
             "name": "id",
@@ -1928,7 +1965,7 @@
             }
           },
           "400": {
-            "description": "Bounty not found, not open, or validation failed.",
+            "description": "Bounty not found, not open, or request input is invalid (`BOUNTY_RESERVE_INVALID_INPUT`).",
             "content": {
               "application/json": {
                 "schema": {

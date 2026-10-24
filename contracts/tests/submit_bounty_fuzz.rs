@@ -110,7 +110,7 @@ proptest! {
             prop_assert!(outcome.is_err(), "unknown bounty ID {id} unexpectedly succeeded");
             let message = panic_message(outcome.unwrap_err().as_ref()).to_string();
             prop_assert!(
-                message.contains("BountyNotFound"),
+                message.contains("Error(Contract, #2)"),
                 "unknown bounty ID {id} produced an undocumented error: {message}"
             );
 
@@ -130,7 +130,7 @@ proptest! {
         prop_assert!(second_submit.is_err());
         let error = panic_message(second_submit.unwrap_err().as_ref()).to_string();
         prop_assert!(
-            error.contains("BountyMustBeReserved"),
+            error.contains("Error(Contract, #19)"),
             "resubmitting a submitted bounty produced an undocumented error: {error}"
         );
 
@@ -154,7 +154,7 @@ fn fuzz_submit_bounty_u64_boundary_ids() {
     ];
 
     for id in boundary_ids {
-        assert_documented_panic("BountyNotFound", || {
+        assert_documented_panic("Error(Contract, #2)", || {
             fix.client.submit_bounty(&id, &fix.contributor);
         });
         assert_eq!(
